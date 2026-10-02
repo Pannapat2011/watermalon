@@ -276,8 +276,6 @@
             <p id="barcode-item-name" style="font-size: 16px; font-weight: 600; margin-bottom: 20px; color: var(--text-main);"></p>
             
             <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; align-items: stretch;">
-                
-                <!-- 🔥 แก้บัคกรอบบาร์โค้ดทะลุตรงนี้ บังคับซ่อนส่วนเกินและจัดให้อยู่ตรงกลาง 🔥 -->
                 <div style="flex: 1; min-width: 200px; background: rgba(255,255,255,0.5); padding: 20px; border-radius: var(--radius-lg); border: var(--glass-border); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;">
                     <p style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-muted); align-self: flex-start;">ตัวอย่างบาร์โค้ด</p>
                     <svg id="preview-barcode-canvas" style="max-width: 100%; height: auto; max-height: 90px;"></svg>
@@ -287,7 +285,6 @@
                     <p style="margin: 0 0 10px 0; font-size: 12px; color: var(--text-muted); align-self: flex-start;">QR Code (สแกนเข้าเว็บ)</p>
                     <canvas id="qr-canvas" style="max-width: 100%; height: auto; max-height: 100px;"></canvas>
                 </div>
-
             </div>
             
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">*ระบบจะพิมพ์บาร์โค้ด 6 ดวงลง 1 หน้ากระดาษ A4 อัตโนมัติ (QR Code จะไม่ถูกพิมพ์)</p>
@@ -312,7 +309,7 @@
         </div>
     </div>
 
-    <!-- 🔥 Modal แจ้งเตือนของเข้า-ออก 🔥 -->
+    <!-- Modal แจ้งเตือนของเข้า-ออก -->
     <div id="noti-modal" class="modal-overlay no-print">
         <div class="modal-box" style="max-height: 80vh; overflow-y: auto;">
             <h3 style="margin-top: 0;">🔔 ประวัติเข้า-ออกล่าสุด</h3>
@@ -540,9 +537,12 @@
     </div>
 
     <script>
-        // ใช้ลิงก์ Google Script เดิมของมึง
+        // ลิงก์ Google Script เดิม
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwm4L1hs8pgH5Z5bAmSpjcwdBRfi5Ez-0fnw1T0Neo0gvKA4yFZoK2EQwZChZLfxbWm/exec';
         const BASE_WEBSITE_URL = window.location.href.split('?')[0];
+
+        // 🔥 เพิ่ม Webhook URL ของมึงตรงนี้ 🔥
+        const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1555492749699055640/TOIRCVLN8QcmSmbzFXCVJB2p_omxVKyr1Lv2E-v8djqzfHamCX6xgMI_MtaRRDj5ENp0';
 
         let inventory = []; let todayLogs = []; let totalIn = 0, totalOut = 0; let loggedInUser = ""; 
         let doughnutChart = null; let barChart = null; let allStockChart = null; 
@@ -552,6 +552,33 @@
         let isDataSynced = false;
 
         Chart.defaults.font.family = "'Prompt', sans-serif"; Chart.defaults.color = '#8E8E93';
+
+        // 🚀 ฟังก์ชันส่งแจ้งเตือนเข้า Discord 🚀
+        async function sendDiscordWebhook(action, name, qty) {
+            if (!DISCORD_WEBHOOK_URL) return;
+            
+            let color = action === 'IN' ? 5763719 : 15548997; // เขียวรับเข้า แดงเบิกออก
+            let actionText = action === 'IN' ? '📥 แจ้งเตือน: รับสินค้าเข้าคลัง' : '📤 แจ้งเตือน: เบิกสินค้าออกจากคลัง';
+            
+            let payload = {
+                embeds: [{
+                    title: actionText,
+                    description: `**รายการ:** ${name}\n**จำนวน:** ${qty} ชิ้น\n**ผู้ทำรายการ:** ${loggedInUser || 'ไม่ระบุ'}`,
+                    color: color,
+                    timestamp: new Date().toISOString()
+                }]
+            };
+
+            try {
+                await fetch(DISCORD_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch(e) {
+                console.error("Discord Webhook Error:", e);
+            }
+        }
 
         function applyDataToUI(data) {
             if (!data) return;
@@ -714,7 +741,6 @@
             setTimeout(() => { if (container.contains(toast)) toast.remove(); }, 3500);
         }
 
-        // 🔥 ฟังก์ชันจัดการ Notification Bell 🔥
         function bounceBadge() {
             let badge = document.getElementById('noti-badge');
             badge.style.animation = 'none';
@@ -768,8 +794,6 @@
         function closeNotiModal() {
             document.getElementById('noti-modal').style.display = 'none';
         }
-
-        // ===========================================
 
         function drawBarcodeSafe(selector, value, widthEAN=1.8, heightEAN=50, fontSize=14) {
             try { 
@@ -1073,6 +1097,10 @@
                 let result = await fetchAPI('receive', { barcode, name, lot, qty, price, user: loggedInUser, image: imageStr });
                 if (result && result.status === 'success') {
                     showNotification('สำเร็จ', `รับของเข้า ${name} เรียบร้อย!`, 'success');
+                    
+                    // 🚀 เรียกใช้งานแจ้งเตือนเข้า Discord 🚀
+                    sendDiscordWebhook('IN', name, qty);
+
                     fetchStockDataBackground(); 
                 }
             } catch (error) { 
@@ -1134,6 +1162,10 @@
                 let result = await fetchAPI('issue', { name: item.name, lot: item.lot, qty: issueQty, user: loggedInUser });
                 if (result && result.status === 'success') {
                     showNotification('สำเร็จ', `ตัดสต๊อก ${item.name} ออก ${issueQty} ชิ้นเรียบร้อย!`, 'success');
+                    
+                    // 🚀 เรียกใช้งานแจ้งเตือนเข้า Discord 🚀
+                    sendDiscordWebhook('OUT', item.name, issueQty);
+
                     fetchStockDataBackground(); 
                 }
             } catch (error) { 

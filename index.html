@@ -541,7 +541,7 @@
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwm4L1hs8pgH5Z5bAmSpjcwdBRfi5Ez-0fnw1T0Neo0gvKA4yFZoK2EQwZChZLfxbWm/exec';
         const BASE_WEBSITE_URL = window.location.href.split('?')[0];
 
-        // 🔥 เพิ่ม Webhook URL ของมึงตรงนี้ 🔥
+        // 🔥 Webhook Discord ของมึง 🔥
         const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1555492749699055640/TOIRCVLN8QcmSmbzFXCVJB2p_omxVKyr1Lv2E-v8djqzfHamCX6xgMI_MtaRRDj5ENp0';
 
         let inventory = []; let todayLogs = []; let totalIn = 0, totalOut = 0; let loggedInUser = ""; 
@@ -553,7 +553,7 @@
 
         Chart.defaults.font.family = "'Prompt', sans-serif"; Chart.defaults.color = '#8E8E93';
 
-        // 🚀 ฟังก์ชันส่งแจ้งเตือนเข้า Discord 🚀
+        // 🚀 ฟังก์ชันส่งแจ้งเตือนเข้า Discord
         async function sendDiscordWebhook(action, name, qty) {
             if (!DISCORD_WEBHOOK_URL) return;
             
@@ -905,6 +905,13 @@
                     if(inputEl) inputEl.value = decodedText; 
                     closeScanner(); 
                     showNotification('แสกนสำเร็จ', `รหัส: ${decodedText}`, 'info'); 
+                    
+                    // 🔥 สั่งให้ค้นหาข้อมูลทันทีหลังสแกนเสร็จ ไม่ต้องกด Enter 🔥
+                    if (currentScanInputId === 'in-barcode') {
+                        findItemForReceive('camera');
+                    } else if (currentScanInputId === 'out-barcode') {
+                        findItemByBarcode('camera');
+                    }
                 }, 
                 (err) => {}
             ).catch(() => { showNotification("ข้อผิดพลาด", "ไม่สามารถเปิดกล้องได้", "danger"); });
@@ -918,7 +925,7 @@
 
         function findItemByBarcode(event) {
             if (event.key === "Enter" || event === "camera" || event === "url") {
-                if(event.key === "Enter") event.preventDefault();
+                if(event && event.key === "Enter") event.preventDefault();
                 let outBarcodeEl = document.getElementById('out-barcode');
                 if(!outBarcodeEl) return;
                 
@@ -958,7 +965,7 @@
 
         function findItemForReceive(event) {
             if (event.key === "Enter" || event === "camera") {
-                if(event.key === "Enter") event.preventDefault();
+                if(event && event.key === "Enter") event.preventDefault();
                 let inBarcodeEl = document.getElementById('in-barcode');
                 let inQtyEl = document.getElementById('in-qty');
                 
@@ -1056,6 +1063,7 @@
             return (match && url.includes('drive.google.com')) ? `https://drive.google.com/thumbnail?id=${match[0]}&sz=w800` : url; 
         }
 
+        // 🔥 อัปเกรดรับเข้าให้เป็น Zero-Latency ไร้ความหน่วง 🔥
         async function receiveItem() {
             let inBarcodeEl = document.getElementById('in-barcode');
             let inNameEl = document.getElementById('in-name');
@@ -1075,40 +1083,49 @@
             
             let btn = document.getElementById('btn-receive');
             if (btn.disabled) return;
-            let originalBtnText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = `กำลังบันทึก <span class="loading-dots"></span>`;
 
-            // 🔥 Optimistic Update: เด้งแจ้งเตือนและกระดิ่งทันที ไม่ต้องรอหลังบ้าน! 🔥
-            showNotification('กำลังประมวลผล', `กำลังรับ ${name} เข้าสู่คลัง...`, 'info');
+            // ✅ 1. ทำงานหน้าจอให้เสร็จทันที 0.01 วิ ✅
+            showNotification('กำลังประมวลผล', `รับของเข้า ${name} จำนวน ${qty} ชิ้น...`, 'info');
+            
             todayLogs.push({ type: 'IN', name: name, qty: qty });
+            totalIn += qty;
             updateNotiBadge();
             bounceBadge();
             
-            // ล้างหน้าจอให้พร้อมกดยิงอันถัดไปได้เลยทันที
+            // อัปเดตคลังในเครื่องเลย
+            let foundIndex = inventory.findIndex(i => (barcode && i.barcode === barcode) || i.name === name);
+            if (foundIndex !== -1) {
+                inventory[foundIndex].qty += qty;
+                if(price > 0) inventory[foundIndex].price = price;
+                if(imageStr) inventory[foundIndex].image = imageStr;
+                if(lot) inventory[foundIndex].lot = lot;
+            } else {
+                inventory.push({ barcode, name, lot, qty, price, image: imageStr });
+            }
+            
+            // ล้างหน้าจอพร้อมยิงกล่องต่อไป
             ['in-barcode', 'in-name', 'in-lot', 'in-qty', 'in-price', 'in-image'].forEach(id => {
                 let el = document.getElementById(id);
                 if(el) el.value = '';
             });
             let previewCont = document.getElementById('in-preview-container');
             if(previewCont) previewCont.style.display = 'none'; 
+            
+            updateDashboard();
+            updateStockTable();
 
-            try {
-                let result = await fetchAPI('receive', { barcode, name, lot, qty, price, user: loggedInUser, image: imageStr });
-                if (result && result.status === 'success') {
-                    showNotification('สำเร็จ', `รับของเข้า ${name} เรียบร้อย!`, 'success');
-                    
-                    // 🚀 เรียกใช้งานแจ้งเตือนเข้า Discord 🚀
-                    sendDiscordWebhook('IN', name, qty);
+            // ✅ 2. ยิงไปเซิร์ฟเวอร์แบบเงียบๆ ไม่ให้รบกวนหน้าจอ ✅
+            fetchAPI('receive', { barcode, name, lot, qty, price, user: loggedInUser, image: imageStr })
+                .then(result => {
+                    if (result && result.status === 'success') {
+                        sendDiscordWebhook('IN', name, qty);
+                        fetchStockDataBackground(); 
+                    }
+                }).catch(e => console.error(e));
 
-                    fetchStockDataBackground(); 
-                }
-            } catch (error) { 
-                showNotification("ข้อผิดพลาด", "เซิร์ฟเวอร์ขัดข้อง แต่ยังเก็บบันทึกไว้ในเครื่อง", "danger"); 
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalBtnText;
-            }
+            // ปลดล็อคปุ่มทันที
+            setTimeout(() => { btn.disabled = false; if(inBarcodeEl) inBarcodeEl.focus(); }, 300);
         }
 
         function updateIssueDropdown() {
@@ -1123,15 +1140,29 @@
             });
         }
 
+        // 🔥 อัปเกรดเบิกออกให้เป็น Zero-Latency ไร้ความหน่วง 🔥
         async function issueItem() {
+            let outBarcodeEl = document.getElementById('out-barcode');
             let outItemEl = document.getElementById('out-item');
             let outQtyEl = document.getElementById('out-qty');
             
-            const index = outItemEl ? outItemEl.value : ""; 
-            const issueQty = outQtyEl ? parseInt(outQtyEl.value) : 0;
+            // อ่านค่าจากกล่องบาร์โค้ดก่อน ถ้าไม่มีค่อยไปอ่านจาก Dropdown
+            let barcodeVal = outBarcodeEl ? outBarcodeEl.value.trim().toLowerCase() : ""; 
+            let index = "";
+
+            if (barcodeVal) {
+                index = inventory.findIndex(item => item.barcode && item.barcode.toLowerCase() === barcodeVal);
+            } else if (outItemEl && outItemEl.value !== "") {
+                index = parseInt(outItemEl.value);
+            }
             
-            if (index === "" || isNaN(issueQty) || issueQty <= 0) { 
-                showNotification("แจ้งเตือน", "เลือกรายการและใส่จำนวนให้ถูกต้อง", "warning"); return; 
+            if (index === "" || index === -1) { 
+                showNotification("แจ้งเตือน", "ไม่พบสินค้า หรือยังไม่ได้เลือกรายการ", "warning"); return; 
+            }
+
+            const issueQty = outQtyEl ? parseInt(outQtyEl.value) : 0;
+            if (isNaN(issueQty) || issueQty <= 0) {
+                showNotification("แจ้งเตือน", "กรุณาใส่จำนวนที่ต้องการเบิก", "warning"); return;
             }
 
             let item = inventory[index]; 
@@ -1141,39 +1172,42 @@
             
             let btn = document.getElementById('btn-issue');
             if(btn.disabled) return;
-            let originalBtnText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = `กำลังเบิกออก <span class="loading-dots"></span>`;
 
-            // 🔥 Optimistic Update: เด้งแจ้งเตือนและกระดิ่งทันที ไม่ต้องรอหลังบ้าน! 🔥
-            showNotification('กำลังประมวลผล', `กำลังเบิก ${item.name} ออกจากคลัง...`, 'info');
+            // ✅ 1. ทำงานหน้าจอให้เสร็จทันที 0.01 วิ ✅
+            showNotification('กำลังประมวลผล', `เบิก ${item.name} ออก ${issueQty} ชิ้น...`, 'info');
+            
             todayLogs.push({ type: 'OUT', name: item.name, qty: issueQty });
+            totalOut += issueQty;
             updateNotiBadge();
             bounceBadge();
+
+            // หักสต๊อกในเครื่องเลย
+            inventory[index].qty -= issueQty;
             
-            let outBarcodeEl = document.getElementById('out-barcode');
+            // ล้างหน้าจอ
             if(outBarcodeEl) outBarcodeEl.value = ''; 
             if(outQtyEl) outQtyEl.value = ''; 
+            if(outItemEl) outItemEl.value = '';
             
             let previewCont = document.getElementById('out-preview-container');
             if(previewCont) previewCont.style.display = 'none'; 
+            
+            updateDashboard();
+            updateStockTable();
+            updateIssueDropdown();
 
-            try {
-                let result = await fetchAPI('issue', { name: item.name, lot: item.lot, qty: issueQty, user: loggedInUser });
-                if (result && result.status === 'success') {
-                    showNotification('สำเร็จ', `ตัดสต๊อก ${item.name} ออก ${issueQty} ชิ้นเรียบร้อย!`, 'success');
-                    
-                    // 🚀 เรียกใช้งานแจ้งเตือนเข้า Discord 🚀
-                    sendDiscordWebhook('OUT', item.name, issueQty);
+            // ✅ 2. ยิงไปเซิร์ฟเวอร์แบบเงียบๆ ไม่ให้รบกวนหน้าจอ ✅
+            fetchAPI('issue', { name: item.name, lot: item.lot, qty: issueQty, user: loggedInUser })
+                .then(result => {
+                    if (result && result.status === 'success') {
+                        sendDiscordWebhook('OUT', item.name, issueQty);
+                        fetchStockDataBackground(); 
+                    }
+                }).catch(e => console.error(e));
 
-                    fetchStockDataBackground(); 
-                }
-            } catch (error) { 
-                showNotification("ข้อผิดพลาด", "เซิร์ฟเวอร์ขัดข้อง ตรวจสอบการเชื่อมต่อ", "danger"); 
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalBtnText;
-            }
+            // ปลดล็อคปุ่มทันที
+            setTimeout(() => { btn.disabled = false; if(outBarcodeEl) outBarcodeEl.focus(); }, 300);
         }
 
         function openEditItem(index) {

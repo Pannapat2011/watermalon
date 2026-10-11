@@ -435,6 +435,7 @@
         .stage-start { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #E2E8F0; text-align: center; padding: 20px; }
         .stage-start .big { font-size: 64px; animation: faceBob 2.6s ease-in-out infinite; }
         .stage-start .btn { width: auto; padding: 14px 34px; }
+        #reg-stage .stage-msg { max-width: calc(100% - 130px); white-space: normal; text-align: center; line-height: 1.35; }
         .stage-tools { position: absolute; right: 14px; bottom: 14px; z-index: 3; display: flex; gap: 8px; }
         .stage-tools button { width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(15,23,42,.65); color: #fff; font-size: 18px; cursor: pointer; }
 
@@ -474,6 +475,21 @@
         .dot-step.done img { width: 100%; height: 100%; object-fit: cover; }
         .dot-step.now { border-color: var(--primary); border-style: solid; animation: attDot 1s infinite; }
         @keyframes attDot { 50% { box-shadow: 0 0 0 6px rgba(59,130,246,.2); } }
+        .dot-step { flex-direction: column; gap: 0; font-size: 18px; line-height: 1; }
+        .dot-step small { font-size: 9px; margin-top: 2px; font-weight: 600; }
+        .pose-pad { position: absolute; top: 14px; right: 14px; width: 84px; height: 84px; border-radius: 50%; background: rgba(15,23,42,.55); border: 2px solid rgba(255,255,255,.35); z-index: 3; display: none; backdrop-filter: blur(6px); overflow: hidden; }
+        .pose-pad.on { display: block; }
+        .pose-pad .pz { position: absolute; width: 30px; height: 30px; border-radius: 50%; background: rgba(52,211,153,.35); border: 2px dashed #34D399; transform: translate(-50%, -50%); transition: left .35s, top .35s; }
+        .pose-pad .pd { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px rgba(255,255,255,.9); transform: translate(-50%, -50%); transition: left .12s linear, top .12s linear, background .2s; left: 50%; top: 50%; }
+        .pose-pad.hit .pd { background: #34D399; box-shadow: 0 0 12px #34D399; }
+        .pose-arrow { position: absolute; top: 46%; z-index: 3; font-size: 64px; color: #FBBF24; text-shadow: 0 4px 18px rgba(0,0,0,.5); transform: translateY(-50%); pointer-events: none; opacity: 0; transition: opacity .25s; }
+        .pose-arrow.on { opacity: 1; }
+        .pose-arrow.l { left: 6%; animation: arrL 1s ease-in-out infinite; }
+        .pose-arrow.r { right: 6%; animation: arrR 1s ease-in-out infinite; }
+        .pose-arrow.u { left: 50%; top: 9%; transform: translateX(-50%); animation: arrU 1s ease-in-out infinite; }
+        @keyframes arrL { 50% { margin-left: -14px; } } @keyframes arrR { 50% { margin-right: -14px; } } @keyframes arrU { 50% { margin-top: -12px; } }
+        .stage.snap::before { content: ''; position: absolute; inset: 0; background: #fff; z-index: 5; pointer-events: none; animation: snapFlash .45s ease-out forwards; }
+        @keyframes snapFlash { from { opacity: .75; } to { opacity: 0; } }
         .att-consent { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--radius-lg); background: rgba(59,130,246,.07); border: 1px dashed rgba(59,130,246,.35); margin: 0 0 16px; cursor: pointer; font-size: 14px; font-weight: 500; line-height: 1.5; opacity: 1; }
         .att-consent input { width: 20px; height: 20px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--primary); }
         .target-banner { display: none; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-lg); background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.35); margin-bottom: 16px; }
@@ -1006,11 +1022,13 @@
                     <canvas id="reg-canvas"></canvas>
                     <div class="oval"></div>
                     <div class="stage-chip left" id="reg-count">📸 0 / 5</div>
+                    <div class="pose-arrow" id="reg-arrow"></div>
+                    <div class="pose-pad" id="reg-pad" title="ตำแหน่งศีรษะ — พาจุดเข้าไปในวงสีเขียว"><div class="pz" id="reg-pz"></div><div class="pd" id="reg-pd"></div></div>
                     <div class="stage-msg" id="reg-msg">กรอกชื่อแล้วกดเริ่มถ่าย</div>
                     <div class="stage-tools"><button onclick="Att.flip()" title="สลับกล้อง">🔄</button></div>
                     <div class="stage-start" id="reg-start">
                         <div class="big">🤳</div>
-                        <div>ระบบจะถ่ายใบหน้า 5 มุมอัตโนมัติ<br><span style="opacity: .7; font-size: 13px;">ถอดแมส/แว่นกันแดด · อยู่ในที่สว่าง</span></div>
+                        <div>ระบบจะถ่ายใบหน้า 5 มุม — <b>ถ่ายเมื่อคุณหันถูกทิศแล้วเท่านั้น</b><br><span style="opacity: .7; font-size: 13px;">มองตรง → หันซ้าย → หันขวา → เงยหน้า → มองตรง · ถอดแมส/แว่นกันแดด · อยู่ในที่สว่าง</span></div>
                         <button class="btn btn-primary" onclick="Att.startRegister()">📸 เริ่มถ่าย</button>
                     </div>
                 </div>
@@ -2410,6 +2428,16 @@
             det.landmarks.positions.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, 6.3); ctx.fill(); });
         }
 
+        // ทิศทางศีรษะจากจุด landmark 68 จุด (ไม่ขึ้นกับกล้องหน้า/หลัง — อ้างอิงซ้าย/ขวาของ "เจ้าของใบหน้า")
+        // yaw: 0 = หน้าตรง, + = หันไปทางซ้ายของเจ้าของหน้า, - = หันขวา   pitch: สัดส่วนจมูก ระหว่างแนวตา→คาง (ค่าน้อยลง = เงยหน้า)
+        function pose(det) {
+            const P = det.landmarks.positions;
+            const L = P[0], R = P[16], N = P[30], C = P[8];
+            const eyeY = (P[36].y + P[45].y) / 2;
+            const w = (R.x - L.x) || 1;
+            return { yaw: ((N.x - L.x) / w - 0.5) * 2, pitch: (N.y - eyeY) / ((C.y - eyeY) || 1) };
+        }
+
         function dist(a, b) { let s = 0; for (let i = 0; i < 128; i++) { const t = a[i] - b[i]; s += t * t; } return Math.sqrt(s); }
         function mean(list) { const m = new Array(128).fill(0); list.forEach(d => d.forEach((x, i) => m[i] += x / list.length)); return m; }
 
@@ -2465,7 +2493,7 @@
         }
         const camError = e => e && e.name === 'NotAllowedError' ? 'ไม่ได้รับอนุญาตให้ใช้กล้อง' : (e && e.message) || 'เปิดกล้องไม่ได้';
 
-        return { load, detect, draw, dist, mean, round, newBlink, blink, crop, beep, openCam, closeCam, camError, get ready() { return ready; } };
+        return { load, detect, draw, pose, dist, mean, round, newBlink, blink, crop, beep, openCam, closeCam, camError, get ready() { return ready; } };
     })();
 
     /* ---- หน้าต่างสแกน (เข้าสู่ระบบ / ยืนยันตัวตน / ตั้งค่าใบหน้าของฉัน) ---- */
@@ -2717,7 +2745,15 @@
     const Att = (() => {
         const PREF_KEY = 'shp_face_prefs';
         const REG_N = 5;
-        const REG_PROMPTS = ['มองตรงที่กล้อง', 'หันซ้ายเล็กน้อย ↖', 'หันขวาเล็กน้อย ↗', 'เงยหน้าเล็กน้อย ⬆', 'ยิ้มนิดนึง 😊'];
+        // ท่าที่ต้องทำในแต่ละรูป — ระบบจะถ่ายก็ต่อเมื่อตรวจว่าทำท่าถูกแล้วและนิ่งพอ
+        const REG_STEPS = [
+            { key: 'front', icon: '🙂', label: 'ตรง' },
+            { key: 'side1', icon: '⬅', label: 'ซ้าย' },
+            { key: 'side2', icon: '➡', label: 'ขวา' },
+            { key: 'up', icon: '⬆', label: 'เงย' },
+            { key: 'front2', icon: '🙂', label: 'ตรง' }
+        ];
+        const POSE = { FRONT: 0.14, SIDE_MIN: 0.24, SIDE_MAX: 0.75, UP_DROP: 0.12, HOLD_MS: 450, PAUSE_MS: 1100, EASY_AFTER: 12000 };
         let prefs = { sound: true, next: 5, mode: 'auto', device: '', radius: 200, facing: 'user' };
         try { Object.assign(prefs, JSON.parse(lsGet(PREF_KEY) || '{}')); } catch (e) {}
 
@@ -2788,6 +2824,7 @@
             if (sc.confirm) { const c = sc.confirm; sc.confirm = null; c('no'); }
             if (cam.which) { const e = el(cam.which); FE.closeCam(cam.stream, e.video, e.canvas); }
             if (cam.which === 'scan') { $('scan-start').style.display = 'flex'; hideResult(); sc.paused = false; setStage('scan', 'idle', 'แตะเพื่อเริ่มสแกน'); }
+            if ($('reg-pad')) hidePose();
             cam.stream = null; cam.which = '';
         }
         async function flip() {
@@ -3029,9 +3066,9 @@
         /* ---------- ➕ ลงทะเบียน ---------- */
         function renderSteps() {
             const n = reg.samples.length;
-            $('reg-steps').innerHTML = Array.from({ length: REG_N }, (_, i) =>
+            $('reg-steps').innerHTML = REG_STEPS.map((st, i) =>
                 i < n ? `<div class="dot-step done"><img src="${reg.thumbs[i]}" alt=""></div>`
-                      : `<div class="dot-step${i === n && cam.which === 'reg' ? ' now' : ''}">${i + 1}</div>`).join('');
+                      : `<div class="dot-step${i === n && cam.which === 'reg' ? ' now' : ''}">${stepIcon(i)}<small>${stepLabel(i)}</small></div>`).join('');
             $('reg-count').textContent = `📸 ${n} / ${REG_N}`;
         }
 
@@ -3182,27 +3219,119 @@
             regLoop(++loop);
         }
 
+        // ฝั่งที่ต้องหันในขั้น side1/side2 (+1 = ซ้ายของเจ้าของหน้า) — ขั้นแรกหันฝั่งไหนก่อนก็ได้ ขั้นต่อไปต้องเป็นอีกฝั่ง
+        const sideName = sgn => sgn > 0 ? 'ซ้าย' : 'ขวา';
+        const sideIcon = sgn => sgn > 0 ? '⬅' : '➡';
+        function stepLabel(i) {
+            const k = REG_STEPS[i].key;
+            if (k === 'side2' && reg.side) return sideName(-reg.side);
+            if (k === 'side1' && reg.side) return sideName(reg.side);
+            return REG_STEPS[i].label;
+        }
+        function stepIcon(i) {
+            const k = REG_STEPS[i].key;
+            if (k === 'side2' && reg.side) return sideIcon(-reg.side);
+            if (k === 'side1' && reg.side) return sideIcon(reg.side);
+            return REG_STEPS[i].icon;
+        }
+
+        // ตรวจท่าของขั้นปัจจุบัน → { ok, msg, arrow, zone:{x,y} }
+        function checkPose(k, ps, easy) {
+            const f = easy ? 0.7 : 1, ay = Math.abs(ps.yaw), p0 = reg.p0 || ps.pitch;
+            const turnMsg = sgn => `หันหน้าไปทาง${sideName(sgn)}ช้าๆ ${sideIcon(sgn)}`;
+            if (k === 'front' || k === 'front2') {
+                if (ay > POSE.FRONT / f) return { msg: 'หันหน้าตรง มองที่กล้อง 🙂', arrow: ps.yaw > 0 ? -1 : 1, zone: { x: 0, y: 0 } };
+                if (k === 'front2' && reg.p0 && ps.pitch < reg.p0 * (1 - POSE.UP_DROP * 0.6)) return { msg: 'ก้มหน้ากลับมาตรงๆ', zone: { x: 0, y: 0 } };
+                return { ok: true, zone: { x: 0, y: 0 } };
+            }
+            if (k === 'side1' || k === 'side2') {
+                const want = k === 'side2' ? -reg.side : 0;           // 0 = ฝั่งไหนก็ได้
+                const sgn = ps.yaw > 0 ? 1 : -1, zoneSgn = want || 1;
+                const zone = { x: zoneSgn * 0.42, y: 0 };
+                if (want && ay > POSE.SIDE_MIN * f * 0.6 && sgn !== want) return { msg: `อีกฝั่ง! หันไปทาง${sideName(want)} ${sideIcon(want)}`, arrow: want, zone };
+                if (ay < POSE.SIDE_MIN * f) return { msg: turnMsg(want || 1), arrow: want || 1, zone };
+                if (ay > POSE.SIDE_MAX) return { msg: 'หันมากไป กลับมานิดนึง', arrow: -sgn, zone };
+                return { ok: true, sgn, zone: { x: sgn * 0.42, y: 0 } };
+            }
+            if (k === 'up') {
+                const zone = { x: 0, y: -0.42 };
+                if (ay > POSE.SIDE_MIN) return { msg: 'หันหน้าตรงก่อน แล้วค่อยเงย', arrow: ps.yaw > 0 ? -1 : 1, zone };
+                if (ps.pitch > p0 * (1 - POSE.UP_DROP * f)) return { msg: 'เงยหน้าขึ้นเล็กน้อย ⬆', arrow: 'u', zone };
+                if (ps.pitch < p0 * 0.45) return { msg: 'เงยมากไป ลดลงนิดนึง', zone };
+                return { ok: true, zone };
+            }
+            return { ok: true, zone: { x: 0, y: 0 } };
+        }
+
+        function showPose(ps, chk) {
+            const mir = prefs.facing === 'user' ? -1 : 1;   // จอแบบกระจก: หันซ้ายแล้วจุดไปทางซ้าย
+            const pad = $('reg-pad'), p0 = reg.p0 || 0.45;
+            pad.classList.add('on');
+            pad.classList.toggle('hit', !!(chk && chk.ok));
+            const clamp = v => Math.max(6, Math.min(94, v));
+            if (ps) {
+                $('reg-pd').style.left = clamp(50 + mir * ps.yaw * 75) + '%';
+                $('reg-pd').style.top = clamp(50 + ((ps.pitch - p0) / p0) * 160) + '%';
+            }
+            if (chk && chk.zone) {
+                $('reg-pz').style.left = (50 + mir * chk.zone.x * 75) + '%';
+                $('reg-pz').style.top = (50 + chk.zone.y * 75) + '%';
+            }
+            const ar = $('reg-arrow');
+            const dir = chk && !chk.ok ? chk.arrow : null;
+            if (!dir) { ar.className = 'pose-arrow'; return; }
+            if (dir === 'u') { ar.className = 'pose-arrow on u'; ar.textContent = '⬆'; return; }
+            const screenLeft = dir * -mir > 0;   // ซ้ายของเจ้าของหน้า บนจอกระจก = ซ้ายของจอ
+            ar.className = 'pose-arrow on ' + (screenLeft ? 'l' : 'r');
+            ar.textContent = screenLeft ? '⬅' : '➡';
+        }
+        function hidePose() { $('reg-pad').classList.remove('on'); $('reg-arrow').className = 'pose-arrow'; }
+
         async function regLoop(id) {
             const e = el('reg');
+            if (!reg.samples.length) { reg.p0 = 0; reg.side = 0; }
+            reg.holdT = 0; reg.stepT = Date.now(); reg.pitchBuf = [];
             while (id === loop && cam.which === 'reg' && reg.samples.length < REG_N) {
                 let f;
                 try { f = await FE.detect(e.video); } catch (err) { await sleep(300); continue; }
                 if (id !== loop) return;
                 FE.draw(e.canvas, f.det);
-                const prompt = REG_PROMPTS[reg.samples.length] || 'นิ่งไว้';
-                if (!f.ok) { setStage('reg', f.det ? 'found' : 'idle', f.msg); await sleep(100); continue; }
-                setStage('reg', 'blink', prompt);
-                if (Date.now() - reg.lastCap < 1000) { await sleep(80); continue; }
+                if (!f.ok) { reg.holdT = 0; showPose(null, null); setStage('reg', f.det ? 'found' : 'idle', f.msg); await sleep(100); continue; }
+
+                const i = reg.samples.length, k = REG_STEPS[i].key;
+                const ps = FE.pose(f.det);
+                const easy = Date.now() - reg.stepT > POSE.EASY_AFTER;     // ทำไม่ได้นานๆ → ผ่อนเกณฑ์ลง
+                const chk = checkPose(k, ps, easy);
+                showPose(ps, chk);
+                if (!chk.ok) { reg.holdT = 0; reg.pitchBuf = []; setStage('reg', 'found', `${i + 1}/${REG_N} · ${chk.msg}`); await sleep(60); continue; }
+
+                // ท่าถูกแล้ว → ต้องค้างไว้ครู่หนึ่งก่อนถ่าย (กันถ่ายตอนกำลังหันผ่าน)
+                if (!reg.holdT) reg.holdT = Date.now();
+                if (k === 'front') reg.pitchBuf.push(ps.pitch);
+                const held = Date.now() - reg.holdT;
+                if (held < POSE.HOLD_MS) { setStage('reg', 'blink', `ดีมาก! ค้างไว้… ${'●'.repeat(1 + Math.floor(held / 160))}`); await sleep(40); continue; }
+
+                // ✓ ถ่าย
+                if (k === 'front') reg.p0 = reg.pitchBuf.reduce((a, b) => a + b, 0) / reg.pitchBuf.length || ps.pitch;
+                if (k === 'side1') reg.side = chk.sgn;
                 reg.samples.push(f.desc);
                 reg.thumbs.push(FE.crop(e.video, f.box, 72, prefs.facing === 'user'));
                 if (reg.samples.length === 1) reg.photo = FE.crop(e.video, f.box, 128, prefs.facing === 'user');
-                reg.lastCap = Date.now();
                 FE.beep(true, prefs.sound);
+                if (navigator.vibrate) try { navigator.vibrate(60); } catch (x) {}
+                e.stage.classList.remove('snap'); void e.stage.offsetWidth; e.stage.classList.add('snap');
                 renderSteps();
+                reg.holdT = 0; reg.pitchBuf = [];
+                if (reg.samples.length >= REG_N) break;
+                const nxt = reg.samples.length;
+                setStage('reg', 'ok', `✓ ถ่ายรูปที่ ${nxt} แล้ว · ต่อไป: ${stepIcon(nxt)} ${REG_STEPS[nxt].key.startsWith('front') ? 'มองตรง' : REG_STEPS[nxt].key === 'up' ? 'เงยหน้า' : 'หัน' + stepLabel(nxt)}`);
+                await sleep(POSE.PAUSE_MS);
+                reg.stepT = Date.now();
             }
             if (id === loop && reg.samples.length >= REG_N) {
-                setStage('reg', 'ok', '✓ ถ่ายครบแล้ว');
-                await sleep(400);
+                hidePose();
+                setStage('reg', 'ok', '✓ ถ่ายครบ 5 มุมแล้ว');
+                await sleep(600);
                 stopCam(); showReview();
             }
         }
@@ -3361,9 +3490,15 @@
         }
 
         /* ---------- ⚙ ตั้งค่า ---------- */
+        let mapPos = null;
         function renderSite() {
-            const center = site || geo.pos;
+            // ยังไม่ตั้งจุดทำงาน → ใช้ตำแหน่ง GPS แต่วาดแผนที่ใหม่เฉพาะเมื่อขยับเกิน 150 ม. (GPS ขยับทีละนิดตลอด ทำให้แผนที่กะพริบ)
             const box = $('map-box');
+            let center = site;
+            if (!center && geo.pos) {
+                if (!mapPos || distanceM(mapPos, geo.pos) > 150) mapPos = { lat: +geo.pos.lat.toFixed(5), lng: +geo.pos.lng.toFixed(5) };
+                center = mapPos;
+            }
             if (center) {
                 const dLat = 0.004, dLng = 0.006;
                 const src = `https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - dLng}%2C${center.lat - dLat}%2C${center.lng + dLng}%2C${center.lat + dLat}&layer=mapnik&marker=${center.lat}%2C${center.lng}`;

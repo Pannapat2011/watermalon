@@ -488,6 +488,24 @@
         .people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
         .p-card { background: var(--glass-bg); border: var(--glass-border); border-radius: 24px; padding: 18px 16px 14px; text-align: center; box-shadow: var(--glass-shadow); transition: var(--transition); position: relative; }
         .p-card:hover { transform: translateY(-5px); }
+        .p-card .pos { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 700; color: #0369A1; background: rgba(14,165,233,.12); padding: 3px 10px; border-radius: 999px; }
+        body.dark-mode .p-card .pos { color: #7DD3FC; }
+        .p-card .nick { font-weight: 500; color: var(--text-muted); font-size: 13px; }
+        .p-card .act button.edit { flex: 0 0 38px; }
+        .req { color: var(--danger); }
+        .pf-seg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+        .pf-seg .chip, .pos-chips .chip, .pos-filter .chip { padding: 6px 14px; font-size: 13px; min-width: 0; }
+        .pos-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 8px; }
+        .pos-filter { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 12px; scrollbar-width: none; }
+        .pos-filter .chip { white-space: nowrap; flex: 0 0 auto; }
+        .pos-filter .chip small { opacity: .65; margin-left: 4px; }
+        .reg-head { margin-bottom: 8px; }
+        .reg-session { background: rgba(16,185,129,.08); border: 1.5px dashed rgba(16,185,129,.45); border-radius: 20px; padding: 12px 14px; margin-bottom: 16px; }
+        .reg-session .rs-top { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-bottom: 8px; font-size: 14px; }
+        .reg-session .rs-list { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+        .reg-session .rs-item { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; background: var(--glass-solid); border-radius: 999px; padding: 4px 12px 4px 4px; font-size: 13px; }
+        .reg-session .rs-item img, .reg-session .rs-item .ph { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: #CBD5E1; display: flex; align-items: center; justify-content: center; }
+        .reg-session .rs-item small { color: var(--text-muted); display: block; font-size: 11px; line-height: 1.1; }
         .p-card .av { width: 82px; height: 82px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 10px; background: #CBD5E1; box-shadow: 0 0 0 3px var(--ring, rgba(148,163,184,.4)); }
         .p-card .id { position: absolute; top: 12px; left: 12px; font-size: 11px; font-weight: 700; color: var(--text-muted); background: rgba(148,163,184,.15); padding: 2px 8px; border-radius: 999px; }
         .p-card b { display: block; font-size: 15px; }
@@ -655,6 +673,21 @@
             <h3 id="att-cm-title" style="margin: 8px 0;"></h3>
             <div id="att-cm-body" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;"></div>
             <div id="att-cm-actions" style="display: grid; gap: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- Modal แก้ไขข้อมูลพนักงาน (ระบบลงเวลา) -->
+    <div id="pe-modal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 520px; text-align: left; max-height: 92vh; overflow-y: auto;">
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 6px;">
+                <img id="pe-photo" alt="" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #CBD5E1;">
+                <div><h3 style="margin: 0;">✏️ แก้ไขข้อมูลพนักงาน</h3><div class="muted" id="pe-id"></div></div>
+            </div>
+            <div id="pe-fields"></div>
+            <div class="form-grid" style="margin-top: 18px;">
+                <button class="btn btn-outline" onclick="Att.closeEdit()">ยกเลิก</button>
+                <button class="btn btn-success" id="pe-save" onclick="Att.saveEdit()">💾 บันทึก</button>
+            </div>
         </div>
     </div>
 
@@ -954,18 +987,17 @@
 
             <!-- ➕ ลงทะเบียน -->
             <div class="att-pane" id="att-register">
+                <div class="reg-session" id="reg-session" style="display: none;"></div>
                 <div id="reg-form">
                     <div class="target-banner" id="reg-target">
                         <img id="reg-target-img" alt="">
                         <div style="flex: 1;"><b id="reg-target-name"></b><div class="muted">เพิ่มมุมใบหน้าให้คนเดิม (ช่วยให้จำได้แม่นขึ้น)</div></div>
                         <button class="btn btn-outline btn-sm" onclick="Att.clearTarget()">✕</button>
                     </div>
-                    <div class="form-grid">
-                        <div><label for="reg-first">ชื่อ</label><input id="reg-first" placeholder="ชื่อจริง" autocomplete="off"></div>
-                        <div><label for="reg-last">นามสกุล</label><input id="reg-last" placeholder="นามสกุล" autocomplete="off"></div>
-                    </div>
-                    <label for="reg-dept">แผนก / ตำแหน่ง (ถ้ามี)</label>
-                    <input id="reg-dept" placeholder="เช่น คลังสินค้า, ขนส่ง" autocomplete="off">
+                    <div class="reg-head"><div><b>🪪 ข้อมูลพนักงาน</b><div class="muted">ลงทะเบียนต่อกันได้หลายคน — บันทึกเสร็จแล้วกด "คนถัดไป"</div></div></div>
+                    <div id="reg-fields"></div>
+                    <label class="tgl-row" style="margin-top: 6px;"><div><b>จำตำแหน่ง/แผนกไว้ใช้กับคนถัดไป</b><small>สะดวกเวลาลงทะเบียนพนักงานกลุ่มเดียวกันทีละหลายคน</small></div>
+                        <span class="tgl"><input type="checkbox" id="reg-keep" checked><span></span></span></label>
                     <label class="att-consent"><input type="checkbox" id="reg-consent">
                         <span>เจ้าของใบหน้า<b>ยินยอม</b>ให้บริษัทเก็บข้อมูลใบหน้า เพื่อใช้บันทึกเวลาเข้า-ออกงานและตำแหน่งขณะสแกนเท่านั้น และขอลบได้ทุกเมื่อ</span></label>
                 </div>
@@ -996,9 +1028,10 @@
             <!-- 👥 รายชื่อ -->
             <div class="att-pane" id="att-people">
                 <div class="att-toolbar">
-                    <input id="people-search" placeholder="🔍 ค้นหาชื่อ แผนก หรือรหัส" oninput="Att.renderPeople()">
+                    <input id="people-search" placeholder="🔍 ค้นหาชื่อ ชื่อเล่น ตำแหน่ง แผนก หรือรหัส" oninput="Att.renderPeople()">
                     <button class="btn btn-primary btn-sm" onclick="Att.showTab('register')">➕ เพิ่มคน</button>
                 </div>
+                <div class="pos-filter" id="people-pos"></div>
                 <div class="people-grid" id="people-grid"></div>
             </div>
 
@@ -2708,7 +2741,7 @@
         /* ---------- เปิด/ปิดหน้า ---------- */
         async function open() {
             startGeo();
-            if (!inited) { inited = true; bindSegs(); renderSteps(); renderPrefs(); }
+            if (!inited) { inited = true; $('reg-fields').innerHTML = fieldsHTML('reg'); bindSegs(); renderSteps(); renderPrefs(); }
             showTab(tab);
             await reload();
         }
@@ -2722,7 +2755,7 @@
                 if (b.status === 'success') { db = b.people || []; TH = b.threshold || 0.5; MARGIN = b.margin || 0.04; }
             } catch (e) { if (e.message !== 'AUTH') showNotification('เชื่อมต่อไม่ได้', 'ตรวจสอบอินเทอร์เน็ต', 'danger'); }
             $('scan-db').textContent = `👥 ${db.length} คน`;
-            renderFeed(); renderPeople(); renderSite(); renderLoc();
+            renderFeed(); renderPeople(); renderSite(); renderLoc(); fillFieldOptions('reg');
         }
 
         function showTab(t) {
@@ -2888,7 +2921,7 @@
                     ${p.photo ? `<img class="r-avatar" src="${esc(p.photo)}" alt="">` : '<div class="r-avatar">🙂</div>'}
                     <div class="r-hello">ใช่คุณใช่ไหม?</div>
                     <div class="r-name">${esc(p.name)}</div>
-                    <div class="muted">${esc(p.id)}${p.dept ? ' · ' + esc(p.dept) : ''} · ตรงกัน ${conf}%</div>
+                    <div class="muted">${esc(p.id)}${p.position ? ' · ' + esc(p.position) : p.dept ? ' · ' + esc(p.dept) : ''} · ตรงกัน ${conf}%</div>
                     <div class="r-type ${typeCls(type)}">${isIn ? '🟢' : '🟠'} ${type}</div>
                     <button class="btn btn-success r-next" id="att-yes" style="margin-top:12px">✅ ยืนยัน${type}<span class="bar" id="att-yes-bar"></span></button>
                     <button class="btn btn-outline" id="att-no" style="margin-top:8px">ไม่ใช่ฉัน</button></div>`;
@@ -2941,7 +2974,7 @@
                     ${rec.photo ? `<img class="r-avatar" src="${esc(rec.photo)}" alt="">` : '<div class="r-avatar">🙂</div>'}
                     <div class="r-hello">${r.duplicate ? 'บันทึกไปแล้วเมื่อสักครู่ 👌' : isIn ? `สวัสดีตอน${h < 12 ? 'เช้า' : h < 17 ? 'บ่าย' : 'เย็น'} 👋` : 'เดินทางกลับปลอดภัยนะ 🙏'}</div>
                     <div class="r-name">${esc(rec.name)}</div>
-                    <div class="muted">${esc(rec.id)}${rec.dept ? ' · ' + esc(rec.dept) : ''}</div>
+                    <div class="muted">${esc(rec.id)}${rec.position ? ' · ' + esc(rec.position) : ''}${rec.dept ? ' · ' + esc(rec.dept) : ''}</div>
                     <div class="r-type ${typeCls(rec.type)}">${isIn ? '🟢' : '🟠'} ${esc(rec.type)}</div>
                     <div class="r-time">${esc(rec.time)}</div>
                     <div class="conf"><span style="width:${rec.conf}%"></span></div>
@@ -3002,11 +3035,119 @@
             $('reg-count').textContent = `📸 ${n} / ${REG_N}`;
         }
 
+        /* ---------- ฟอร์มข้อมูลพนักงาน (ใช้ทั้งลงทะเบียนและแก้ไข) ---------- */
+        const PREFIXES = ['นาย', 'นาง', 'นางสาว'];
+        const BASE_POS = ['พนักงานคลังสินค้า', 'พนักงานคัดแยก', 'พนักงานขนถ่าย', 'คนขับรถ', 'หัวหน้างาน', 'ฝ่ายขาย', 'แอดมิน', 'ผู้จัดการ'];
+        const BASE_DEPT = ['คลังสินค้า', 'ขนส่ง', 'คัดแยก/แพ็ค', 'ฝ่ายขาย', 'สำนักงาน'];
+        const uniq = a => [...new Set(a.filter(Boolean))];
+        const allPositions = () => uniq([...people.map(p => p.position), ...BASE_POS]);
+        const fullName = p => `${p.prefix || ''}${p.first} ${p.last}`.trim();
+        let sessionDone = [], posFilter = '', editing = null;
+
+        function fieldsHTML(px) {
+            return `<label>คำนำหน้า</label>
+                <div class="pf-seg" id="${px}-prefix">${[...PREFIXES, ''].map(v => `<button type="button" class="chip${v === '' ? ' active' : ''}" data-v="${v}" onclick="Att.pickPrefix('${px}', this)">${v || 'ไม่ระบุ'}</button>`).join('')}</div>
+                <div class="form-grid">
+                    <div><label for="${px}-first">ชื่อ <span class="req">*</span></label><input id="${px}-first" placeholder="ชื่อจริง" autocomplete="off" maxlength="40"></div>
+                    <div><label for="${px}-last">นามสกุล <span class="req">*</span></label><input id="${px}-last" placeholder="นามสกุล" autocomplete="off" maxlength="40"></div>
+                </div>
+                <div class="form-grid">
+                    <div><label for="${px}-nick">ชื่อเล่น</label><input id="${px}-nick" placeholder="เช่น ต้น" autocomplete="off" maxlength="20"></div>
+                    <div><label for="${px}-code">รหัสพนักงาน</label><input id="${px}-code" placeholder="เช่น EMP001" autocomplete="off" maxlength="20" style="text-transform: uppercase;"></div>
+                </div>
+                <label for="${px}-position">ตำแหน่ง <span class="req">*</span></label>
+                <input id="${px}-position" list="${px}-pos-list" placeholder="เลือกด้านล่างหรือพิมพ์เอง" autocomplete="off" maxlength="40" oninput="Att.markPos('${px}')">
+                <datalist id="${px}-pos-list"></datalist>
+                <div class="pos-chips" id="${px}-pos-chips"></div>
+                <label for="${px}-dept">แผนก</label>
+                <input id="${px}-dept" list="${px}-dept-list" placeholder="เช่น คลังสินค้า, ขนส่ง" autocomplete="off" maxlength="40">
+                <datalist id="${px}-dept-list"></datalist>`;
+        }
+        function fillFieldOptions(px) {
+            if (!$(px + '-pos-list')) return;
+            const pos = allPositions();
+            $(px + '-pos-list').innerHTML = pos.map(v => `<option value="${esc(v)}">`).join('');
+            $(px + '-dept-list').innerHTML = uniq([...people.map(p => p.dept), ...BASE_DEPT]).map(v => `<option value="${esc(v)}">`).join('');
+            $(px + '-pos-chips').innerHTML = pos.slice(0, 10).map(v => `<button type="button" class="chip" data-v="${esc(v)}" onclick="Att.pickPos('${px}', this.dataset.v)">${esc(v)}</button>`).join('');
+            markPos(px);
+        }
+        function pickPrefix(px, b) { document.querySelectorAll(`#${px}-prefix .chip`).forEach(x => x.classList.toggle('active', x === b)); }
+        function pickPos(px, v) { $(px + '-position').value = v; markPos(px); }
+        function markPos(px) {
+            const v = norm($(px + '-position').value);
+            document.querySelectorAll(`#${px}-pos-chips .chip`).forEach(x => x.classList.toggle('active', x.dataset.v === v));
+        }
+        function getFields(px) {
+            const a = document.querySelector(`#${px}-prefix .chip.active`);
+            return { prefix: a ? a.dataset.v : '', first: norm($(px + '-first').value), last: norm($(px + '-last').value),
+                nick: norm($(px + '-nick').value), code: norm($(px + '-code').value).toUpperCase(),
+                position: norm($(px + '-position').value), dept: norm($(px + '-dept').value) };
+        }
+        function setFields(px, p) {
+            const pre = p.prefix || '';
+            document.querySelectorAll(`#${px}-prefix .chip`).forEach(x => x.classList.toggle('active', x.dataset.v === pre));
+            ['first', 'last', 'nick', 'code', 'position', 'dept'].forEach(k => $(px + '-' + k).value = p[k] || '');
+            markPos(px);
+        }
+        function checkFields(px) {
+            const f = getFields(px);
+            const miss = !f.first ? 'first' : !f.last ? 'last' : !f.position ? 'position' : '';
+            if (miss) {
+                showNotification('กรอกข้อมูลให้ครบ', { first: 'ใส่ชื่อ', last: 'ใส่นามสกุล', position: 'เลือกหรือพิมพ์ตำแหน่ง' }[miss], 'warning');
+                $(px + '-' + miss).focus(); return null;
+            }
+            const dup = f.code && people.find(p => (p.code || '').toUpperCase() === f.code && (!editing || p.id !== editing.id) && (px !== 'reg' || !reg.target || p.id !== reg.target.id));
+            if (dup) { showNotification('รหัสพนักงานซ้ำ', `${f.code} เป็นของ ${dup.first} ${dup.last}`, 'warning'); $(px + '-code').focus(); return null; }
+            return f;
+        }
+
+        function renderSession() {
+            const box = $('reg-session');
+            if (!sessionDone.length) { box.style.display = 'none'; return; }
+            box.style.display = '';
+            box.innerHTML = `<div class="rs-top"><span>✅ ลงทะเบียนในรอบนี้ ${sessionDone.length} คน</span>
+                <button class="btn btn-outline btn-sm" onclick="Att.showTab('people')">ดูรายชื่อทั้งหมด</button></div>
+                <div class="rs-list">${sessionDone.slice().reverse().map(p => `<div class="rs-item">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : '<div class="ph">🙂</div>'}
+                    <div>${esc(p.first)} ${esc(p.last)}<small>${esc(p.position || '')}</small></div></div>`).join('')}</div>`;
+        }
+
+        function nextPerson() {
+            const keep = $('reg-keep').checked, f = getFields('reg');
+            resetRegister(false);
+            if (keep) { $('reg-position').value = f.position; $('reg-dept').value = f.dept; markPos('reg'); }
+            $('att-register').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => $('reg-first').focus(), 300);
+        }
+
+        /* ---------- ✏️ แก้ไขข้อมูล ---------- */
+        function editPerson(id) {
+            const p = people.find(x => x.id === id); if (!p) return;
+            editing = p;
+            if (!$('pe-first')) $('pe-fields').innerHTML = fieldsHTML('pe');
+            fillFieldOptions('pe'); setFields('pe', p);
+            $('pe-photo').src = p.photo || NO_IMG;
+            $('pe-id').textContent = `${p.id} · ${p.samples} มุมใบหน้า`;
+            $('pe-modal').style.display = 'flex';
+        }
+        function closeEdit() { $('pe-modal').style.display = 'none'; editing = null; }
+        async function saveEdit() {
+            if (!editing) return;
+            const f = checkFields('pe'); if (!f) return;
+            const btn = $('pe-save'); if (btn.disabled) return;
+            btn.disabled = true; btn.innerHTML = 'กำลังบันทึก <span class="loading-dots"></span>';
+            try {
+                const r = await api('faceUpdatePerson', Object.assign({ id: editing.id }, f));
+                if (r.status === 'success') { showNotification('บันทึกแล้ว', `${f.first} ${f.last} · ${f.position}`, 'success'); closeEdit(); reload(); }
+                else showNotification('บันทึกไม่สำเร็จ', r.message || '', 'danger');
+            } catch (e) { if (e.message !== 'AUTH') showNotification('ข้อผิดพลาด', 'การเชื่อมต่อขัดข้อง', 'danger'); }
+            finally { btn.disabled = false; btn.textContent = '💾 บันทึก'; }
+        }
+
         function resetRegister(keepForm) {
             loop++; stopCam();
             reg.samples = []; reg.thumbs = []; reg.photo = ''; reg.lastCap = 0;
             if (!keepForm) {
-                ['reg-first', 'reg-last', 'reg-dept'].forEach(id => $(id).value = '');
+                setFields('reg', {});
                 $('reg-consent').checked = false;
                 clearTarget();
             }
@@ -3020,14 +3161,14 @@
             reg.target = p;
             $('reg-target').style.display = 'flex';
             $('reg-target-img').src = p.photo || NO_IMG;
-            $('reg-target-name').textContent = `${p.first} ${p.last} (${p.id})`;
-            $('reg-first').value = p.first; $('reg-last').value = p.last; $('reg-dept').value = p.dept || '';
+            $('reg-target-name').textContent = `${fullName(p)} (${p.id})`;
+            setFields('reg', p);
         }
         function clearTarget() { reg.target = null; $('reg-target').style.display = 'none'; }
 
         async function startRegister(isFlip) {
             if (!isFlip) {
-                if (!norm($('reg-first').value) || !norm($('reg-last').value)) { showNotification('กรอกข้อมูลก่อน', 'ใส่ชื่อและนามสกุล', 'warning'); $('reg-first').focus(); return; }
+                if (!checkFields('reg')) return;
                 if (!$('reg-consent').checked) { showNotification('ต้องได้รับความยินยอม', 'ติ๊กช่องยินยอมก่อนถ่ายใบหน้า', 'warning'); return; }
                 reg.samples = []; reg.thumbs = []; reg.photo = '';
             }
@@ -3070,7 +3211,8 @@
             $('reg-stage').style.display = 'none';
             $('reg-steps').innerHTML = '';
             $('reg-review').innerHTML = `<img class="big" src="${reg.photo}" alt="">
-                <div style="font-size:18px;font-weight:700">${esc(norm($('reg-first').value))} ${esc(norm($('reg-last').value))}</div>
+                <div style="font-size:18px;font-weight:700">${esc(fullName(getFields('reg')))}</div>
+                <div class="muted">${esc(getFields('reg').position)}${getFields('reg').dept ? ' · ' + esc(getFields('reg').dept) : ''}</div>
                 <div class="muted">ถ่ายครบ ${reg.samples.length} มุม ✓ ตรวจว่าเป็นหน้าของคนนี้ชัดเจน แล้วกดบันทึก</div>
                 <div class="thumbs">${reg.thumbs.map(t => `<img src="${t}" alt="">`).join('')}</div>`;
             $('reg-review').style.display = 'block';
@@ -3089,7 +3231,7 @@
             btn.disabled = true; btn.innerHTML = 'กำลังบันทึก <span class="loading-dots"></span>';
             try {
                 const r = await api('faceRegister', {
-                    first: norm($('reg-first').value), last: norm($('reg-last').value), dept: norm($('reg-dept').value),
+                    ...getFields('reg'),
                     consent: $('reg-consent').checked, descriptors: reg.samples, photo: reg.photo,
                     id: addToId || (reg.target ? reg.target.id : undefined), force: !!force
                 });
@@ -3115,10 +3257,14 @@
                 $('reg-done').style.display = '';
                 $('reg-done').innerHTML = `${p.photo ? `<img class="av" src="${esc(p.photo)}" alt="">` : ''}
                     <h2 style="margin:0 0 4px">${r.updated ? 'อัปเดตใบหน้าแล้ว' : 'ลงทะเบียนสำเร็จ'} 🎉</h2>
-                    <div style="font-size:18px;font-weight:600">${esc(p.first)} ${esc(p.last)}</div>
-                    <div class="muted" style="margin-bottom:22px">${esc(p.id)}${p.dept ? ' · ' + esc(p.dept) : ''} · ${p.samples} มุมใบหน้า</div>
-                    <div class="form-grid"><button class="btn btn-outline" onclick="Att.resetRegister(false)">➕ ลงทะเบียนคนถัดไป</button>
-                    <button class="btn btn-primary" onclick="Att.showTab('scan')">🔍 ไปหน้าสแกน</button></div>`;
+                    <div style="font-size:18px;font-weight:600">${esc(fullName(p))}${p.nick ? ` <span class="muted">(${esc(p.nick)})</span>` : ''}</div>
+                    <div style="margin:6px 0 4px"><span class="area-badge area-in">💼 ${esc(p.position || '—')}</span></div>
+                    <div class="muted" style="margin-bottom:22px">${esc(p.id)}${p.code ? ' · ' + esc(p.code) : ''}${p.dept ? ' · ' + esc(p.dept) : ''} · ${p.samples} มุมใบหน้า</div>
+                    <button class="btn btn-primary" id="reg-next" onclick="Att.nextPerson()" style="width:100%;margin-bottom:10px">➕ ลงทะเบียนคนถัดไป</button>
+                    <button class="btn btn-outline" onclick="Att.showTab('scan')" style="width:100%">🔍 เสร็จแล้ว ไปหน้าสแกน</button>`;
+                if (!r.updated) sessionDone.push(p);
+                else sessionDone = sessionDone.filter(x => x.id !== p.id).concat(p);
+                renderSession();
                 reg.samples = [];
                 reload();
             } catch (e) {
@@ -3131,22 +3277,30 @@
         /* ---------- 👥 รายชื่อ ---------- */
         function renderPeople() {
             const q = norm($('people-search').value).toLowerCase();
-            const list = people.filter(p => !q || `${p.first} ${p.last} ${p.dept} ${p.id} ${p.user || ''}`.toLowerCase().includes(q));
+            const posCount = {}; people.forEach(p => { const k = p.position || 'ไม่ระบุตำแหน่ง'; posCount[k] = (posCount[k] || 0) + 1; });
+            if (posFilter && !posCount[posFilter]) posFilter = '';
+            $('people-pos').innerHTML = people.length ? [['', 'ทั้งหมด', people.length], ...Object.keys(posCount).sort().map(k => [k, k, posCount[k]])]
+                .map(([v, l, n]) => `<button class="chip${v === posFilter ? ' active' : ''}" data-v="${esc(v)}" onclick="Att.filterPos(this.dataset.v)">${esc(l)}<small>${n}</small></button>`).join('') : '';
+            const list = people.filter(p => (!posFilter || (p.position || 'ไม่ระบุตำแหน่ง') === posFilter) &&
+                (!q || `${p.prefix || ''}${p.first} ${p.last} ${p.nick || ''} ${p.position || ''} ${p.dept} ${p.id} ${p.code || ''} ${p.user || ''}`.toLowerCase().includes(q)));
             $('people-grid').innerHTML = list.length ? list.map(p => {
                 const ring = p.todayType === 'เข้างาน' ? 'var(--in)' : p.todayType === 'ออกงาน' ? 'var(--out)' : 'rgba(148,163,184,.4)';
                 return `<div class="p-card" style="--ring:${ring}">
                     <span class="id">${esc(p.id)}</span>
                     ${p.photo ? `<img class="av" src="${esc(p.photo)}" alt="">` : '<div class="av" style="display:flex;align-items:center;justify-content:center;font-size:36px">🙂</div>'}
-                    <b>${esc(p.first)} ${esc(p.last)}</b>
-                    <div class="muted">${esc(p.dept || '—')}</div>
+                    <b>${esc(fullName(p))}${p.nick ? ` <span class="nick">(${esc(p.nick)})</span>` : ''}</b>
+                    <span class="pos">💼 ${esc(p.position || 'ไม่ระบุตำแหน่ง')}</span>
+                    <div class="muted" style="margin-top:4px">${esc(p.dept || '—')}${p.code ? ' · ' + esc(p.code) : ''}</div>
                     ${p.user ? `<div style="margin-top:6px"><span class="area-badge area-in" title="ใช้ใบหน้านี้เข้าสู่ระบบได้">🔑 ${esc(p.user)}</span></div>` : ''}
                     <div style="margin-top:8px">${p.todayType ? `<span class="type-pill ${typeCls(p.todayType)}">${esc(p.todayType)} ${esc(String(p.todayTime).slice(0, 5))}</span>` : '<span class="area-badge area-none">ยังไม่สแกนวันนี้</span>'}</div>
                     <div class="act">
+                        <button class="edit" title="แก้ไขข้อมูล" onclick="Att.editPerson('${esc(p.id)}')">✏️</button>
                         <button onclick="Att.addAngles('${esc(p.id)}')">📸 เพิ่มมุม (${p.samples})</button>
                         <button class="del" title="ลบข้อมูลใบหน้า" onclick="Att.deletePerson('${esc(p.id)}')">🗑️</button>
                     </div></div>`;
             }).join('') : `<div class="empty-note" style="grid-column:1/-1">${people.length ? 'ไม่พบชื่อที่ค้นหา' : 'ยังไม่มีใครลงทะเบียน — กด "➕ เพิ่มคน"'}</div>`;
         }
+        function filterPos(v) { posFilter = v; renderPeople(); }
         function addAngles(id) {
             const p = people.find(x => x.id === id); if (!p) return;
             showTab('register'); resetRegister(false); setTarget(p);
@@ -3286,7 +3440,8 @@
         }
 
         return { open, close, showTab, startScan, flip, nextScan, startRegister, retakeRegister, saveRegister, resetRegister,
-            clearTarget, renderPeople, addAngles, deletePerson, loadHistory, exportCSV, saveSite, clearSite, savePrefs };
+            clearTarget, renderPeople, addAngles, deletePerson, loadHistory, exportCSV, saveSite, clearSite, savePrefs,
+            pickPrefix, pickPos, markPos, nextPerson, editPerson, closeEdit, saveEdit, filterPos };
     })();
     window.Att = Att;
 

@@ -806,6 +806,10 @@
         .q-chip:hover { transform: none; border-color: var(--brand-primary); }
         .check input, .att-consent input, .f-consent input { accent-color: var(--brand-primary); }
 
+        .price-pair > div { position: relative; }
+        .price-pair > div.is-site label::after { content: 'เว็บนี้ใช้'; margin-left: 8px; font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: color-mix(in srgb, var(--brand-primary) 12%, transparent); color: var(--brand-primary); vertical-align: 1px; }
+        .price-pair > div.is-site input { border-color: color-mix(in srgb, var(--brand-primary) 55%, var(--hair-strong)); }
+
         /* ---------- ภาพรวม ---------- */
         .dash-grid { gap: 14px; margin-top: 4px; }
         .dash-box { text-align: left; padding: 20px 20px 18px; border-radius: 16px; background: var(--sheet-2); border: 1px solid var(--hair); box-shadow: none; position: relative; overflow: hidden; }
@@ -1176,7 +1180,7 @@
                 <div class="dash-box"><p>คงเหลือรวม (ชิ้น)</p><span class="text-blue" id="dash-total">0</span></div>
                 <div class="dash-box"><p>รับเข้าวันนี้</p><span class="text-green" id="dash-in">0</span></div>
                 <div class="dash-box"><p>เบิกออกวันนี้</p><span class="text-red" id="dash-out">0</span></div>
-                <div class="dash-box"><p>มูลค่าคลัง (฿)</p><span class="text-dark" id="dash-value">0</span></div>
+                <div class="dash-box"><p id="dash-value-label">มูลค่าคลัง (฿)</p><span class="text-dark" id="dash-value">0</span></div>
             </div>
             <div class="type-split">
                 <div class="split-box seeded"><div class="sb-title">🍉 แตงโมมีเมล็ด</div><div class="sb-num" id="split-seeded">0</div><div class="sb-sub" id="split-seeded-sub"></div></div>
@@ -1232,9 +1236,11 @@
 
             <div id="in-builder"></div>
 
-            <div class="form-grid">
-                <div><label for="in-qty">จำนวนที่รับเข้า</label><input type="number" id="in-qty" placeholder="0" min="1" inputmode="numeric" onkeydown="if(event.key==='Enter') receiveItem()"></div>
-                <div><label for="in-price">ราคาต่อชิ้น (฿)</label><input type="number" id="in-price" placeholder="0" min="0" step="0.01" inputmode="decimal"></div>
+            <label for="in-qty">จำนวนที่รับเข้า</label>
+            <input type="number" id="in-qty" placeholder="0" min="1" inputmode="numeric" onkeydown="if(event.key==='Enter') receiveItem()">
+            <div class="form-grid price-pair">
+                <div data-key="price"><label for="in-price">ราคาขายออนไลน์ (฿/ชิ้น)</label><input type="number" id="in-price" placeholder="0" min="0" step="0.01" inputmode="decimal"></div>
+                <div data-key="factory"><label for="in-factory">ราคาขายหน้าโรงงาน (฿/ชิ้น)</label><input type="number" id="in-factory" placeholder="0" min="0" step="0.01" inputmode="decimal"></div>
             </div>
             <label for="in-image">ลิงก์รูปภาพ</label>
             <input type="text" id="in-image" placeholder="วางลิงก์รูป (Google Drive ก็ได้)">
@@ -1287,7 +1293,7 @@
                             <th>น้ำหนัก</th>
                             <th>ล็อต</th>
                             <th>บาร์โค้ด</th>
-                            <th>ราคา</th>
+                            <th id="th-price">ราคา</th>
                             <th>คงเหลือ</th>
                             <th>จัดการ</th>
                         </tr>
@@ -1333,9 +1339,11 @@
 
             <div id="ed-builder"></div>
 
-            <div class="form-grid">
-                <div><label for="edit-qty">คงเหลือ</label><input type="number" id="edit-qty" min="0"></div>
-                <div><label for="edit-price">ราคา</label><input type="number" id="edit-price" min="0" step="0.01"></div>
+            <label for="edit-qty">คงเหลือ</label>
+            <input type="number" id="edit-qty" min="0">
+            <div class="form-grid price-pair">
+                <div data-key="price"><label for="edit-price">ราคาขายออนไลน์ (฿/ชิ้น)</label><input type="number" id="edit-price" min="0" step="0.01"></div>
+                <div data-key="factory"><label for="edit-factory">ราคาขายหน้าโรงงาน (฿/ชิ้น)</label><input type="number" id="edit-factory" min="0" step="0.01"></div>
             </div>
             <label for="edit-image">ลิงก์รูปภาพ</label>
             <input type="text" id="edit-image">
@@ -1509,6 +1517,15 @@
     // เว็บนี้คือเว็บไหน (ใช้ Apps Script ลิงก์เดียวกัน — เซิร์ฟเวอร์ใช้ค่านี้เลือกโลโก้ของแต่ละเว็บ)
     const SITE = 'siam';
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwm4L1hs8pgH5Z5bAmSpjcwdBRfi5Ez-0fnw1T0Neo0gvKA4yFZoK2EQwZChZLfxbWm/exec';
+    // ราคาที่เว็บนี้ใช้แสดง/คิดมูลค่า: สยาม = ราคาขายออนไลน์ (คอลัมน์ H) · ณิชชา ชามม์ = ราคาขายหน้าโรงงาน (คอลัมน์ R)
+    const SALE_KEY = SITE === 'nichcha' ? 'factory' : 'price';
+    const SALE_LABEL = SITE === 'nichcha' ? 'ราคาหน้าโรงงาน' : 'ราคาออนไลน์';
+    const salePrice = it => Number(it && it[SALE_KEY]) || 0;
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.price-pair > div').forEach(d => d.classList.toggle('is-site', d.dataset.key === SALE_KEY));
+        const th = document.getElementById('th-price'); if (th) th.textContent = SALE_LABEL;
+        const dv = document.getElementById('dash-value-label'); if (dv) dv.textContent = `มูลค่าคลัง · ${SALE_LABEL} (฿)`;
+    });
     const BASE_WEBSITE_URL = location.href.split('?')[0].split('#')[0];
     let LOW_STOCK = 5;
     const LS = { data: 'shp_inventory_cache_v3', token: 'shp_token', user: 'shp_user', dark: 'shp_dark', hasFace: 'shp_has_face' };
@@ -1722,7 +1739,7 @@
             if (changed) ['in', 'ed'].forEach(p => builders[p] && renderSizeChips(p));
         }
         inventory = (data.stock || []).map(it => ({
-            ...it, qty: Number(it.qty) || 0, price: Number(it.price) || 0,
+            ...it, qty: Number(it.qty) || 0, price: Number(it.price) || 0, factory: Number(it.factory) || 0,
             type: TYPES.includes(it.type) ? it.type : 'มีเมล็ด', variety: it.variety || it.name, color: normColor(it.color) || '#D9D9D9',
             best: it.best === true, sold: Number(it.sold) || 0
         }));
@@ -1968,6 +1985,7 @@
             $('in-barcode').value = it.barcode || '';
             builders.in.filledFrom = { key: itemKey(it), barcode: it.barcode || '' };
             if (!norm($('in-price').value)) $('in-price').value = it.price || '';
+            if (!norm($('in-factory').value)) $('in-factory').value = it.factory || '';
             $('in-image').value = it.image || '';
             $('in-quick-wrap').open = false;
             $('in-qty').focus();
@@ -2269,6 +2287,7 @@
             builderSet('in', it);
             builders.in.filledFrom = { key: itemKey(it), barcode: it.barcode || '' };
             $('in-price').value = it.price || '';
+            $('in-factory').value = it.factory || '';
             $('in-image').value = it.image || '';
             showNotification('ดึงข้อมูลสำเร็จ', matches.length > 1 ? `มี ${matches.length} ล็อต — แก้ช่องล็อตได้` : 'ใส่จำนวนที่รับเข้าได้เลย', 'info');
             $('in-qty').focus();
@@ -2285,11 +2304,12 @@
         const barcode = norm($('in-barcode').value);
         const qty = parseInt($('in-qty').value, 10);
         const price = parseFloat($('in-price').value) || 0;
+        const factory = parseFloat($('in-factory').value) || 0;
         const image = norm($('in-image').value);
 
         if (!f.variety) { showNotification('แจ้งเตือน', 'กรุณาระบุสายพันธุ์', 'warning'); $('in-variety').focus(); return; }
         if (!(qty > 0)) { showNotification('แจ้งเตือน', 'กรุณาใส่จำนวนที่รับเข้า', 'warning'); $('in-qty').focus(); return; }
-        if (price < 0) { showNotification('แจ้งเตือน', 'ราคาต้องไม่ติดลบ', 'warning'); return; }
+        if (price < 0 || factory < 0) { showNotification('แจ้งเตือน', 'ราคาต้องไม่ติดลบ', 'warning'); return; }
         const name = composeName(f);
         if (barcode) {
             const other = inventory.find(it => norm(it.barcode) === barcode && it.name !== name);
@@ -2301,10 +2321,11 @@
         if (it) {
             it.qty += qty;
             if (price > 0) it.price = price;
+            if (factory > 0) it.factory = factory;
             if (image) it.image = image;
             if (barcode && !it.barcode) it.barcode = barcode;
         } else {
-            it = { name, lot: f.lot, type: f.type, variety: f.variety, size: f.size, weight: f.weight, color: f.color, qty, price, image, barcode, best: false, sold: 0 };
+            it = { name, lot: f.lot, type: f.type, variety: f.variety, size: f.size, weight: f.weight, color: f.color, qty, price, factory, image, barcode, best: false, sold: 0 };
             inventory.push(it);
         }
         applyColorLocal(it, f.color, f.applyColorToVariety);
@@ -2312,12 +2333,12 @@
         totalIn += qty;
         todayLogs.push({ type: 'IN', name, lot: f.lot, qty, user: loggedInUser, time: nowHM() });
 
-        ['in-barcode', 'in-qty', 'in-price', 'in-image'].forEach(id => $(id).value = '');
+        ['in-barcode', 'in-qty', 'in-price', 'in-factory', 'in-image'].forEach(id => $(id).value = '');
         builderReset('in', true);  // คงประเภท+สายพันธุ์ไว้ รับไซส์ถัดไปได้เร็ว
         renderAll(); bounceBadge();
         showNotification('กำลังบันทึก', `รับ ${name} +${qty} ชิ้น (คงเหลือ ${fmt(it.qty)})`, 'info');
 
-        sendWrite('receive', { ...f, qty, price, image, barcode }, `รับ ${name} +${qty} ชิ้น`);
+        sendWrite('receive', { ...f, qty, price, factory, image, barcode }, `รับ ${name} +${qty} ชิ้น`);
         setTimeout(() => { btn.disabled = false; }, 300);
     }
 
@@ -2430,6 +2451,7 @@
         $('edit-barcode').value = it.barcode || '';
         $('edit-qty').value = it.qty;
         $('edit-price').value = it.price || 0;
+        $('edit-factory').value = it.factory || 0;
         $('edit-image').value = it.image || '';
         showPage('edit-item-page', null);
         builderRefresh('ed');
@@ -2451,9 +2473,10 @@
         const f = builderGet('ed');
         const qty = parseInt($('edit-qty').value, 10);
         const price = parseFloat($('edit-price').value) || 0;
-        if (!f.variety || isNaN(qty) || qty < 0 || price < 0) { showNotification('แจ้งเตือน', 'ข้อมูลไม่ครบหรือไม่ถูกต้อง', 'warning'); return; }
+        const factory = parseFloat($('edit-factory').value) || 0;
+        if (!f.variety || isNaN(qty) || qty < 0 || price < 0 || factory < 0) { showNotification('แจ้งเตือน', 'ข้อมูลไม่ครบหรือไม่ถูกต้อง', 'warning'); return; }
 
-        const payload = { oldName: it.name, oldLot: it.lot || '', ...f, qty, price, barcode: norm($('edit-barcode').value), image: norm($('edit-image').value), best: $('ed-best').checked };
+        const payload = { oldName: it.name, oldLot: it.lot || '', ...f, qty, price, factory, barcode: norm($('edit-barcode').value), image: norm($('edit-image').value), best: $('ed-best').checked };
         btn.disabled = true; btn.innerHTML = 'อัปเดตข้อมูล <span class="loading-dots"></span>';
         try {
             const r = await api('edit', payload);
@@ -2515,7 +2538,7 @@
                         <td>${it.weight ? escapeHtml(it.weight) + ' กก.' : '-'}</td>
                         <td style="color:var(--text-muted);">${escapeHtml(it.lot || '-')}</td>
                         <td>${bc}</td>
-                        <td style="font-weight:600;">฿${fmt(it.price)}</td>
+                        <td style="font-weight:600;">฿${fmt(salePrice(it))}</td>
                         <td><span class="status-badge ${cls}">${fmt(it.qty)}</span></td>
                         <td><div class="row-actions">
                             <button class="btn-edit" data-action="edit" data-index="${index}">แก้ไข</button>
@@ -2551,9 +2574,9 @@
     function exportStockCSV() {
         if (!inventory.length) { showNotification('ไม่มีข้อมูล', 'คลังว่างอยู่', 'warning'); return; }
         const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-        const rows = [['ประเภท', 'สายพันธุ์', 'ไซส์', 'น้ำหนัก(กก.)', 'ชื่อสินค้า', 'ล็อต', 'บาร์โค้ด', 'คงเหลือ', 'ราคาต่อชิ้น(บาท)', 'มูลค่า(บาท)', 'สี'].map(esc).join(',')];
+        const rows = [['ประเภท', 'สายพันธุ์', 'ไซส์', 'น้ำหนัก(กก.)', 'ชื่อสินค้า', 'ล็อต', 'บาร์โค้ด', 'คงเหลือ', 'ราคาขายออนไลน์(บาท)', 'ราคาขายหน้าโรงงาน(บาท)', `มูลค่าตาม${SALE_LABEL}(บาท)`, 'สี'].map(esc).join(',')];
         inventory.forEach(it => rows.push([esc(it.type), esc(it.variety), esc(it.size), esc(it.weight), esc(it.name), esc(it.lot || '-'),
-            esc(it.barcode ? '\t' + it.barcode : ''), it.qty, it.price, it.qty * it.price, esc(it.color)].join(',')));
+            esc(it.barcode ? '\t' + it.barcode : ''), it.qty, it.price, it.factory || 0, it.qty * salePrice(it), esc(it.color)].join(',')));
         const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -2665,7 +2688,7 @@
                     <div class="lbl-sub">${typeMeta(it.type).icon} ${escapeHtml(it.type)}${it.size ? ' · ไซส์ ' + escapeHtml(it.size) : ''}${it.weight ? ' · ' + escapeHtml(it.weight) + ' กก.' : ''}</div>
                     <div class="lbl-bc">${cache[it.barcode]}</div>
                     ${it.best ? '<div class="lbl-best">★ BEST SELLER</div>' : ''}
-                    <div class="lbl-foot">${it.lot ? 'ล็อต ' + escapeHtml(it.lot) + ' · ' : ''}${it.price ? '฿' + fmt(it.price) : ''}</div>
+                    <div class="lbl-foot">${it.lot ? 'ล็อต ' + escapeHtml(it.lot) + ' · ' : ''}${salePrice(it) ? '฿' + fmt(salePrice(it)) : ''}</div>
                 </div>`).join('');
             pages.push(`<div class="print-page size-${per}">${chunk}</div>`);
         }
@@ -2681,7 +2704,7 @@
         const split = { 'มีเมล็ด': { qty: 0, n: 0, v: new Set() }, 'ไร้เมล็ด': { qty: 0, n: 0, v: new Set() } };
         inventory.forEach(it => {
             totalStock += it.qty;
-            totalValue += it.qty * it.price;
+            totalValue += it.qty * salePrice(it);
             const s = split[it.type]; if (s) { s.qty += it.qty; s.n++; s.v.add(norm(it.variety).toLowerCase()); }
             if (it.qty === 0) { cOut++; lows.push(it); }
             else if (it.qty <= LOW_STOCK) { cLow++; lows.push(it); }
